@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống TKB Tự Động Cập Nhật</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <style>
+        :root { --primary: #2563eb; --secondary: #f59e0b; --bg: #f8fafc; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; padding: 20px; }
+        .header { text-align: center; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .controls { display: flex; justify-content: center; gap: 15px; margin-bottom: 20px; }
+        select { padding: 12px 25px; border-radius: 10px; border: 2px solid #e2e8f0; font-size: 16px; outline: none; transition: 0.3s; }
+        select:focus { border-color: var(--primary); }
+        
+        .timetable-container { background: white; border-radius: 20px; padding: 20px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); overflow-x: auto; }
+        table { width: 100%; border-collapse: separate; border-spacing: 8px; }
+        th { background: var(--primary); color: white; padding: 15px; border-radius: 8px; text-transform: uppercase; font-size: 14px; min-width: 120px; }
+        td { background: #f1f5f9; padding: 15px; border-radius: 8px; text-align: center; height: 80px; transition: 0.2s; }
+        td:hover { transform: scale(1.02); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        
+        .subject { font-weight: 700; color: #1e3a8a; display: block; margin-bottom: 5px; }
+        .teacher { font-size: 12px; color: #64748b; display: flex; align-items: center; justify-content: center; gap: 5px; }
+        .loading { text-align: center; padding: 50px; font-style: italic; color: #64748b; }
+        .icon-decor { font-size: 18px; color: var(--secondary); }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <i class="fas fa-pencil-ruler" style="font-size: 40px; color: var(--primary); margin-bottom: 15px;"></i>
+    <h1 style="margin:0">THỜI KHÓA BIỂU TRỰC TUYẾN</h1>
+    <p style="color: #64748b;">Dữ liệu tự động đồng bộ từ Google Sheets</p>
+</div>
+
+<div class="controls">
+    <select id="classSelector" onchange="filterTimetable()">
+        <option value="">-- Chọn Lớp học --</option>
+    </select>
+    <select id="teacherSelector" onchange="filterTimetable()">
+        <option value="">-- Chọn Giáo viên --</option>
+    </select>
+</div>
+
+<div class="timetable-container" id="mainTable">
+    <div class="loading">Đang tải dữ liệu từ nhà trường...</div>
+</div>
+
+<script>
+    // Dán link CSV của bạn vào đây
+    const SHEET_URL = 'LINK_CSV_CUA_BAN_TAI_DAY'; 
+    let fullData = [];
+
+    async function fetchData() {
+        Papa.parse(SHEET_URL, {
+            download: true,
+            header: true,
+            complete: function(results) {
+                fullData = results.data;
+                initSelectors();
+                renderTable(fullData);
+            }
+        });
+    }
+
+    function initSelectors() {
+        const classes = [...new Set(fullData.map(item => item.Lop))].filter(Boolean);
+        const teachers = [...new Set(fullData.map(item => item.GiaoVien))].filter(Boolean);
+        
+        const classSelect = document.getElementById('classSelector');
+        classes.forEach(c => classSelect.innerHTML += `<option value="${c}">${c}</option>`);
+
+        const teacherSelect = document.getElementById('teacherSelector');
+        teachers.forEach(t => teacherSelect.innerHTML += `<option value="${t}">${t}</option>`);
+    }
+
+    function renderTable(data) {
+        const days = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+        const periods = [1, 2, 3, 4, 5]; // Giả định 5 tiết sáng
+
+        let html = `<table><thead><tr><th>Tiết</th>`;
+        days.forEach(day => html += `<th>${day}</th>`);
+        html += `</tr></thead><tbody>`;
+
+        periods.forEach(p => {
+            html += `<tr><td style="font-weight:bold; background:#e2e8f0">Tiết ${p}</td>`;
+            days.forEach(day => {
+                const session = data.find(item => item.Thu == day && item.Tiet == p);
+                html += `<td>
+                    ${session ? `
+                        <span class="subject"><i class="fas fa-microscope icon-decor"></i> ${session.MonHoc}</span>
+                        <span class="teacher"><i class="fas fa-user-tie"></i> ${session.GiaoVien}</span>
+                    ` : '<i class="fas fa-coffee" style="color:#cbd5e1"></i>'}
+                </td>`;
+            });
+            html += `</tr>`;
+        });
+
+        html += `</tbody></table>`;
+        document.getElementById('mainTable').innerHTML = html;
+    }
+
+    function filterTimetable() {
+        const selectedClass = document.getElementById('classSelector').value;
+        const selectedTeacher = document.getElementById('teacherSelector').value;
+        
+        let filtered = fullData;
+        if(selectedClass) filtered = filtered.filter(i => i.Lop === selectedClass);
+        if(selectedTeacher) filtered = filtered.filter(i => i.GiaoVien === selectedTeacher);
+        
+        renderTable(filtered);
+    }
+
+    fetchData();
+</script>
+
+</body>
+</html>
